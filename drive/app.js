@@ -80,7 +80,11 @@
     }
 
     async function signIn(restored) {
+        var button = $('signIn');
         $('setup').hidden = true;
+        button.disabled = true;
+        button.textContent = 'Signing In…';
+        if (mock || restored) { $('signedOut').hidden = true; $('loading').hidden = false; }
         try {
             if (!mock && !restored) {
                 if (!cfg.webClientId) throw new Error('Google sign-in isn’t set up yet: add drive.config.json on the Mac and restart the server.');
@@ -91,11 +95,14 @@
             drive = App.DriveApi(API, getToken, function () { token = null; });
             var me = (await drive.about()).user;
             folders = await drive.folders();
-            $('who').textContent = me.emailAddress || me.displayName;
-            $('signedOut').hidden = true;
-            $('signedIn').hidden = false;
+            var who = me.emailAddress || me.displayName || '';
+            $('who').textContent = who;
+            $('avatar').textContent = $('avatarBig').textContent = (me.displayName || who || '?').trim().charAt(0).toUpperCase();
+            $('avatar').title = who;
             $('fromDrive').hidden = !!mock || !cfg.apiKey;
             await load();
+            $('signedOut').hidden = true;
+            $('signedIn').hidden = false;
         } catch (e) {
             keepToken(null);
             $('signedIn').hidden = true;
@@ -103,6 +110,10 @@
             $('setup').textContent = e.message + (mock || restored ? '' :
                 ' If Google said “origin_mismatch”: after a settings change it can take up to a few hours until every Google server knows this page. Try again a bit later.');
             $('setup').hidden = false;
+        } finally {
+            $('loading').hidden = true;
+            button.disabled = false;
+            button.textContent = 'Sign in with Google';
         }
     }
 
@@ -112,6 +123,7 @@
         books = [];
         $('signedIn').hidden = true;
         $('signedOut').hidden = false;
+        $('navbar').classList.remove('on');
         $('count').textContent = '';
     }
 
@@ -127,23 +139,29 @@
         render();
     }
 
+    // Reading progress in percent, or null for a book not opened yet.
+    function percent(b) { var p = progress[b.id]; return p ? Math.min(100, Math.max(1, Math.round(p.pct * 100))) : null; }
+
+    var DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+    var shown = false; // the shelf fades in once, not on every reload
+
     function render() {
         $('count').textContent = books.length ? books.length + (books.length === 1 ? ' book' : ' books') : '';
         $('empty').hidden = books.length > 0;
-        $('books').innerHTML = books.map(function (b) {
-            var p = progress[b.id], pct = p ? Math.round(p.pct * 100) : 0;
-            var state = p ? (pct >= 100 ? 'Finished' : pct + '% read') : 'Not started';
+        $('books').classList.toggle('intro', !shown);
+        $('books').innerHTML = books.map(function (b, n) {
+            var pct = percent(b);
+            var state = pct === null ? '<span class="state new">New</span>' : pct >= 100 ? '<span class="state done">Finished</span>' : '<span class="state">' + pct + '%</span>';
             var hue = 0;
             for (var i = 0; i < b.title.length; i++) hue = (hue * 31 + b.title.charCodeAt(i)) >>> 0;
-            hue %= 360;
-            return '<li class="book" data-id="' + esc(b.id) + '"><div class="cover">' +
-                '<div class="gen" style="background:linear-gradient(160deg,hsl(' + hue + ',32%,30%),hsl(' + ((hue + 40) % 360) + ',38%,16%))">' + esc(b.title) + '<small>' + esc(b.author) + '</small></div>' +
-                (p && pct < 100 ? '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '') + '</div>' +
+            return '<li class="book" data-id="' + esc(b.id) + '" style="--i:' + Math.min(n, 12) + '">' +
+                '<button class="cover" type="button" data-act="menu" aria-label="' + esc(b.title) + '">' +
+                '<span class="gen" style="--h:' + hue % 360 + '"><b>' + esc(b.title) + '</b><i></i><small>' + esc(b.author) + '</small></span></button>' +
                 '<div class="title">' + esc(b.title) + '</div>' +
-                '<div class="meta">' + esc(b.author || b.format.toUpperCase()) + '</div>' +
-                '<div class="meta">' + b.format.toUpperCase() + (b.size ? ' · ' + size(b.size) : '') + ' · ' + state + '</div>' +
-                '<div class="actions"><button data-act="edit">Edit</button><button data-act="delete" class="danger">Remove</button></div></li>';
+                '<div class="author">' + esc(b.author || b.format.toUpperCase()) + '</div>' +
+                '<div class="status">' + state + '<button class="more" type="button" data-act="menu" aria-label="More">' + DOTS + '</button></div></li>';
         }).join('');
+        if (books.length) shown = true;
         // Covers need the sign-in header, so they're fetched rather than linked.
         books.forEach(function (b) {
             if (!b.coverId) return;
@@ -201,13 +219,17 @@
     }
 
     function queueRow(name) {
+        var ext = ((/\.(pdf|epub)$/i.exec(name) || [])[1] || '').toLowerCase();
         var li = document.createElement('li');
-        li.innerHTML = '<span class="name">' + esc(name) + '</span><span class="state">Waiting…</span><div class="bar"><i></i></div>';
+        li.innerHTML = '<span class="kind ' + ext + '">' + ext.toUpperCase() + '</span><span class="name">' + esc(name) + '</span>' +
+            '<span class="state">Waiting…</span><div class="bar"><i></i></div>';
         $('queue').appendChild(li);
         return {
-            state: function (text, kind) { var s = li.querySelector('.state'); s.textContent = text; s.className = 'state' + (kind ? ' ' + kind : ''); },
+            state: function (text, kind) { var s = li.querySelector('.state'); s.textContent = text; s.className = 'state' + (kind ? ' ' + kind : ''); li.className = kind || ''; },
             bar: function (f) { li.querySelector('.bar i').style.width = (f * 100).toFixed(1) + '%'; },
-            done: function () { setTimeout(function () { li.remove(); }, 4000); }
+            done: function () {
+                setTimeout(function () { li.classList.add('gone'); setTimeout(function () { li.remove(); }, 300); }, 4000);
+            }
         };
     }
 
@@ -275,57 +297,132 @@
         }
     }
 
+    /* ---- Book actions (action sheet, edit form) ------------------------------------ */
+
+    var sheet = $('sheet'), editor = $('editor'), editing = null;
+
+    function openDialog(d) {
+        clearTimeout(d.closer);
+        d.classList.remove('closing');
+        if (d.open) return;
+        d.showModal();
+        if (d.tabIndex === -1) d.focus(); // a sheet opens without a focus ring on its first button
+    }
+    // Plays the closing animation first.
+    function closeDialog(d) {
+        if (!d.open || d.classList.contains('closing')) return;
+        d.classList.add('closing');
+        d.closer = setTimeout(function () { d.classList.remove('closing'); d.close(); }, 200);
+    }
+
+    function actionSheet(title, message, actions) {
+        $('sheetHead').innerHTML = '<strong>' + esc(title) + '</strong>' + (message ? '<span>' + esc(message) + '</span>' : '');
+        var box = $('sheetActions');
+        box.innerHTML = '';
+        actions.forEach(function (a) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = a.label;
+            if (a.danger) b.className = 'danger';
+            b.addEventListener('click', a.run);
+            box.appendChild(b);
+        });
+        openDialog(sheet);
+    }
+
+    function bookMenu(book) {
+        var pct = percent(book);
+        var info = [book.author, book.format.toUpperCase(), book.size && size(book.size), pct === null ? '' : pct >= 100 ? 'Finished' : pct + '% read'];
+        actionSheet(book.title, info.filter(Boolean).join(' · '), [
+            { label: 'Edit Title and Author', run: function () { closeDialog(sheet); editBook(book); } },
+            { label: 'Remove from Bookshelf', danger: true, run: function () { confirmRemove(book); } }
+        ]);
+    }
+
+    function confirmRemove(book) {
+        var uploaded = book.parents.indexOf(folders.root) !== -1;
+        actionSheet('Remove “' + book.title + '”?', uploaded ? 'It moves to the Google Drive trash. You can restore it from there for 30 days.' : 'It stays in your Google Drive and just leaves Bookshelf.', [
+            { label: 'Remove Book', danger: true, run: function () { closeDialog(sheet); change(book, remove(book, uploaded), 'Couldn’t remove it'); } }
+        ]);
+    }
+
+    // Same rule as the TV: uploaded → Drive trash; picked → just unmarked.
+    async function remove(book, uploaded) {
+        if (uploaded) await drive.update(book.id, { trashed: true });
+        else await drive.update(book.id, { appProperties: { bookshelf: null, cover: null } });
+        if (book.coverId) drive.update(book.coverId, { trashed: true }).catch(function () {});
+    }
+
+    // Dims the book while Drive is updated, then reloads the shelf.
+    async function change(book, work, failed) {
+        var li = document.querySelector('.book[data-id="' + book.id + '"]');
+        if (li) li.classList.add('busy');
+        try { await work; } catch (e) { queueRow(book.name || book.title).state(e.message || failed, 'bad'); }
+        await load();
+    }
+
+    function field(name) { return $('editForm').querySelector('[name=' + name + ']'); }
+
+    function editBook(book) {
+        editing = book;
+        field('title').value = book.title;
+        field('author').value = book.author || '';
+        openDialog(editor);
+    }
+
+    $('editForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var title = field('title').value.trim() || editing.title;
+        var author = field('author').value.trim();
+        closeDialog(editor);
+        change(editing, drive.update(editing.id, { appProperties: { title: fit('title', title), author: author ? fit('author', author) : null } }), 'Couldn’t save it');
+    });
+
+    [sheet, editor, $('account')].forEach(function (d) {
+        d.addEventListener('cancel', function (e) { e.preventDefault(); closeDialog(d); }); // Esc, with the animation
+        d.addEventListener('click', function (e) { if (e.target === d || e.target.closest('[data-close]')) closeDialog(d); });
+    });
+
+    $('books').addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-act=menu]');
+        if (!btn) return;
+        var id = btn.closest('.book').getAttribute('data-id');
+        var book = books.filter(function (b) { return b.id === id; })[0];
+        if (book) bookMenu(book);
+    });
+
     /* ---- Wiring --------------------------------------------------------------------- */
 
     $('signIn').addEventListener('click', function () { signIn(false); }); // not signIn(event): that reads as "restored"
-    $('signOut').addEventListener('click', signOut);
+    $('avatar').addEventListener('click', function () { openDialog($('account')); });
+    $('signOut').addEventListener('click', function () { closeDialog($('account')); signOut(); });
     $('fromDrive').addEventListener('click', pickFromDrive);
     $('pick').addEventListener('change', function (e) { addAll(Array.prototype.slice.call(e.target.files)); e.target.value = ''; });
-    var drop = $('drop');
-    ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
-    ['dragleave', 'drop'].forEach(function (t) { drop.addEventListener(t, function () { drop.classList.remove('over'); }); });
-    drop.addEventListener('drop', function (e) {
+
+    // Files can be dropped anywhere on the page.
+    var depth = 0;
+    function withFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') !== -1; }
+    document.addEventListener('dragenter', function (e) {
+        if (!withFiles(e)) return;
         e.preventDefault();
-        if (e.dataTransfer && e.dataTransfer.files.length) addAll(Array.prototype.slice.call(e.dataTransfer.files));
+        if (++depth === 1 && !$('signedIn').hidden) $('dropzone').hidden = false;
+    });
+    document.addEventListener('dragover', function (e) { if (withFiles(e)) e.preventDefault(); });
+    document.addEventListener('dragleave', function (e) { if (withFiles(e) && --depth <= 0) { depth = 0; $('dropzone').hidden = true; } });
+    document.addEventListener('drop', function (e) {
+        if (!withFiles(e)) return;
+        e.preventDefault(); // never open the file in place of the page
+        depth = 0;
+        $('dropzone').hidden = true;
+        if (!$('signedIn').hidden && e.dataTransfer.files.length) addAll(Array.prototype.slice.call(e.dataTransfer.files));
     });
 
-    $('books').addEventListener('click', async function (e) {
-        var btn = e.target.closest('button');
-        if (!btn) return;
-        var li = btn.closest('.book'), id = li.getAttribute('data-id');
-        var book = books.filter(function (b) { return b.id === id; })[0];
-        var act = btn.getAttribute('data-act');
-        if (act === 'delete') {
-            btn.textContent = 'Really remove?';
-            btn.className = 'confirm';
-            btn.setAttribute('data-act', 'confirm');
-            setTimeout(function () {
-                if (btn.isConnected && btn.getAttribute('data-act') === 'confirm') { btn.textContent = 'Remove'; btn.className = 'danger'; btn.setAttribute('data-act', 'delete'); }
-            }, 4000);
-        } else if (act === 'confirm') {
-            // Same rule as the TV: uploaded → Drive trash; picked → just unmarked.
-            if (book.parents.indexOf(folders.root) !== -1) await drive.update(id, { trashed: true });
-            else await drive.update(id, { appProperties: { bookshelf: null, cover: null } });
-            if (book.coverId) drive.update(book.coverId, { trashed: true }).catch(function () {});
-            await load();
-        } else if (act === 'edit') {
-            var box = document.createElement('div');
-            box.className = 'edit';
-            box.innerHTML = '<input name="title" placeholder="Title"><input name="author" placeholder="Author">' +
-                '<div class="actions"><button data-act="save">Save</button><button data-act="cancel">Cancel</button></div>';
-            box.querySelector('[name=title]').value = book.title;
-            box.querySelector('[name=author]').value = book.author || '';
-            li.querySelector('.actions').replaceWith(box);
-            box.querySelector('input').focus();
-        } else if (act === 'save') {
-            var title = li.querySelector('[name=title]').value.trim() || book.title;
-            var author = li.querySelector('[name=author]').value.trim();
-            await drive.update(id, { appProperties: { title: fit('title', title), author: author ? fit('author', author) : null } });
-            await load();
-        } else if (act === 'cancel') {
-            render();
-        }
-    });
+    // The large title moves into the top bar once it scrolls away, as in iOS.
+    if (window.IntersectionObserver) {
+        new IntersectionObserver(function (entries) {
+            $('navbar').classList.toggle('on', !entries[0].isIntersecting && !$('signedIn').hidden);
+        }, { rootMargin: '-44px 0px 0px 0px' }).observe($('title'));
+    }
 
     if (mock) signIn(); // tests: no sign-in window
     else if ((token = savedToken())) signIn(true); // reloaded within the hour: still signed in

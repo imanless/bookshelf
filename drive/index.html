@@ -2,54 +2,117 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark light">
-    <title>Bookshelf · Google Drive</title>
-    <link rel="stylesheet" href="../style.css?v=2a3887d">
-    <link rel="stylesheet" href="drive.css?v=2a3887d">
-    <script src="config.js?v=2a3887d"></script>
-    <script src="../tv/vendor/fflate.js?v=2a3887d"></script>
-    <script src="../tv/js/drive-api.js?v=2a3887d"></script>
-    <script src="../tv/js/bookmeta.js?v=2a3887d"></script>
-    <script src="app.js?v=2a3887d" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-title" content="Bookshelf">
+    <title>Bookshelf</title>
+    <link rel="icon" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="stylesheet" href="drive.css?v=32fb173">
+    <script src="config.js?v=32fb173"></script>
+    <script src="../tv/vendor/fflate.js?v=32fb173"></script>
+    <script src="../tv/js/drive-api.js?v=32fb173"></script>
+    <script src="../tv/js/bookmeta.js?v=32fb173"></script>
+    <script src="app.js?v=32fb173" defer></script>
 </head>
 <body>
-    <main>
-        <header>
-            <div>
-                <h1>Bookshelf</h1>
-                <p id="sub" class="sub">Your books in Google Drive</p>
-            </div>
-            <span id="count" class="count"></span>
-        </header>
+    <div id="navbar" class="navbar" aria-hidden="true"><span>Bookshelf</span></div>
 
-        <section id="signedOut" class="signin">
-            <p>Sign in with the Google account you use on the TV. Bookshelf only sees the books you add here.</p>
+    <main>
+        <div id="loading" class="loading" hidden>
+            <svg class="spinner" viewBox="0 0 24 24" aria-label="Loading"><g stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="2.5" x2="12" y2="6.5"/><line x1="12" y1="2.5" x2="12" y2="6.5" transform="rotate(45 12 12)"/><line x1="12" y1="2.5" x2="12" y2="6.5" transform="rotate(90 12 12)"/><line x1="12" y1="2.5" x2="12" y2="6.5" transform="rotate(135 12 12)"/><line x1="12" y1="2.5" x2="12" y2="6.5" transform="rotate(180 12 12)"/><line x1="12" y1="2.5" x2="12" y2="6.5" transform="rotate(225 12 12)"/><line x1="12" y1="2.5" x2="12" y2="6.5" transform="rotate(270 12 12)"/><line x1="12" y1="2.5" x2="12" y2="6.5" transform="rotate(315 12 12)"/></g></svg>
+        </div>
+
+        <section id="signedOut" class="welcome">
+            <div class="fan" aria-hidden="true">
+                <span class="tome t1"><b>Walden</b><small>Thoreau</small></span>
+                <span class="tome t2"><b>Emma</b><small>Austen</small></span>
+                <span class="tome t3"><b>Dracula</b><small>Stoker</small></span>
+            </div>
+            <h1>Welcome to Bookshelf</h1>
+            <ul class="features">
+                <li>
+                    <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M16 3.5H8.5a2.5 2.5 0 0 0-2.5 2.5v16a2.5 2.5 0 0 0 2.5 2.5h11a2.5 2.5 0 0 0 2.5-2.5V9.5z"/><path d="M16 3.5v6h6M14 20.5v-7m0 0-3 3m3-3 3 3"/></svg>
+                    <div><strong>Add from iPhone or Mac</strong><span>Upload PDFs and EPUBs, or pick books already in your Google Drive.</span></div>
+                </li>
+                <li>
+                    <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h5.2l2.3 2.5h9.5a2 2 0 0 1 2 2v10.5a2 2 0 0 1-2 2h-17a2 2 0 0 1-2-2z"/><path d="M3.5 12h21"/></svg>
+                    <div><strong>Kept in your Drive</strong><span>Books go into a Bookshelf folder. The app only sees the books you add.</span></div>
+                </li>
+                <li>
+                    <svg viewBox="0 0 28 28" aria-hidden="true"><rect x="3" y="5" width="22" height="14.5" rx="2"/><path d="M10 23.5h8"/></svg>
+                    <div><strong>Read on your TV</strong><span>Open Bookshelf on the TV. New books show up within seconds.</span></div>
+                </li>
+            </ul>
             <button id="signIn" class="primary" type="button">Sign in with Google</button>
-            <p id="setup" class="note" hidden></p>
+            <p class="fine">Use the Google account that’s signed in on your TV.</p>
+            <p id="setup" class="alert" role="alert" hidden></p>
         </section>
 
         <section id="signedIn" hidden>
-            <div class="account"><span id="who"></span><button id="signOut" class="link" type="button">Sign out</button></div>
+            <header class="title-row">
+                <h1 id="title">Bookshelf</h1>
+                <button id="avatar" class="avatar" type="button" aria-label="Account"></button>
+            </header>
 
-            <label id="drop" class="drop">
-                <input id="pick" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5M4 15v3a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-3"/></svg>
-                <strong>Add PDFs or EPUBs</strong>
-                <span>Drop files here, or tap to choose</span>
-            </label>
-            <button id="fromDrive" class="secondary" type="button">Pick books already in Google Drive</button>
+            <div class="group add">
+                <label id="drop" class="row">
+                    <input id="pick" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple>
+                    <span class="tile blue"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 19V6m0 0-5 5m5-5 5 5M6 18v2.5A2.5 2.5 0 0 0 8.5 23h11a2.5 2.5 0 0 0 2.5-2.5V18"/></svg></span>
+                    <span class="text"><strong>Add PDFs or EPUBs</strong><span class="hint-touch">Choose from Files or Photos</span><span class="hint-mouse">Choose files, or drop them anywhere here</span></span>
+                    <svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>
+                </label>
+                <button id="fromDrive" class="row" type="button">
+                    <span class="tile green"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h5.2l2.3 2.5h9.5a2 2 0 0 1 2 2v10.5a2 2 0 0 1-2 2h-17a2 2 0 0 1-2-2z"/><path d="M3.5 12h21"/></svg></span>
+                    <span class="text"><strong>Choose from Google Drive</strong><span>Books already in your Drive</span></span>
+                    <svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>
+                </button>
+            </div>
 
-            <ul id="queue" class="queue"></ul>
+            <ul id="queue" class="group queue" aria-live="polite"></ul>
 
-            <section>
-                <h2>Books</h2>
-                <p id="empty" class="empty" hidden>No books yet. Anything you add shows up on the TV a few seconds later.</p>
+            <section class="library">
+                <div class="section-head"><h2>Library</h2><span id="count" class="count"></span></div>
+                <div id="empty" class="empty" hidden>
+                    <svg viewBox="0 0 56 56" aria-hidden="true"><path d="M8 12.5c6-2.5 13-2.5 20 2 7-4.5 14-4.5 20-2v31c-6-2.5-13-2.5-20 2-7-4.5-14-4.5-20-2zM28 14.5v31"/></svg>
+                    <strong>No Books Yet</strong>
+                    <span>Books you add here show up on your TV a few seconds later.</span>
+                </div>
                 <ul id="books" class="books"></ul>
             </section>
-        </section>
 
-        <footer>Books you upload go into the <b>Bookshelf</b> folder of your Google Drive. Removing an uploaded book moves it to the Drive trash; a book you picked from elsewhere just leaves Bookshelf.</footer>
+            <footer>Uploaded books go into the <b>Bookshelf</b> folder of your Google Drive. Removing one moves it to the Drive trash. A book you picked from elsewhere in Drive just leaves Bookshelf.</footer>
+        </section>
     </main>
+
+    <dialog id="sheet" class="sheet" tabindex="-1">
+        <div class="sheet-group">
+            <div id="sheetHead" class="sheet-head"></div>
+            <div id="sheetActions" class="sheet-actions"></div>
+        </div>
+        <button class="sheet-cancel" type="button" data-close>Cancel</button>
+    </dialog>
+
+    <dialog id="account" class="sheet" tabindex="-1">
+        <div class="sheet-group">
+            <div class="sheet-head"><span id="avatarBig" class="avatar big"></span><strong>Google Account</strong><span id="who"></span></div>
+            <div class="sheet-actions"><button id="signOut" class="danger" type="button">Sign Out</button></div>
+        </div>
+        <button class="sheet-cancel" type="button" data-close>Cancel</button>
+    </dialog>
+
+    <dialog id="editor" class="modal">
+        <form id="editForm">
+            <div class="modal-bar"><button class="plain" type="button" data-close>Cancel</button><strong>Edit Details</strong><button class="plain bold" type="submit">Save</button></div>
+            <div class="fields">
+                <label><span>Title</span><input name="title" autocomplete="off" spellcheck="false" autofocus></label>
+                <label><span>Author</span><input name="author" autocomplete="off" spellcheck="false" placeholder="Unknown"></label>
+            </div>
+        </form>
+    </dialog>
+
+    <div id="dropzone" class="dropzone" hidden><div><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 19V6m0 0-5 5m5-5 5 5M6 18v2.5A2.5 2.5 0 0 0 8.5 23h11a2.5 2.5 0 0 0 2.5-2.5V18"/></svg><strong>Drop to Add to Bookshelf</strong></div></div>
 </body>
 </html>
