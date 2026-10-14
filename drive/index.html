@@ -10,12 +10,12 @@
     <title>Bookshelf</title>
     <link rel="icon" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
-    <link rel="stylesheet" href="drive.css?v=32fb173">
-    <script src="config.js?v=32fb173"></script>
-    <script src="../tv/vendor/fflate.js?v=32fb173"></script>
-    <script src="../tv/js/drive-api.js?v=32fb173"></script>
-    <script src="../tv/js/bookmeta.js?v=32fb173"></script>
-    <script src="app.js?v=32fb173" defer></script>
+    <link rel="stylesheet" href="drive.css?v=71f3fc0">
+    <script src="config.js?v=71f3fc0"></script>
+    <script src="../tv/vendor/fflate.js?v=71f3fc0"></script>
+    <script src="../tv/js/drive-api.js?v=71f3fc0"></script>
+    <script src="../tv/js/bookmeta.js?v=71f3fc0"></script>
+    <script src="app.js?v=71f3fc0" defer></script>
 </head>
 <body>
     <div id="navbar" class="navbar" aria-hidden="true"><span>Bookshelf</span></div>
@@ -27,9 +27,9 @@
 
         <section id="signedOut" class="welcome">
             <div class="fan" aria-hidden="true">
-                <span class="tome t1"><b>Walden</b><small>Thoreau</small></span>
-                <span class="tome t2"><b>Emma</b><small>Austen</small></span>
-                <span class="tome t3"><b>Dracula</b><small>Stoker</small></span>
+                <span class="tome t1"><img src="covers/planets.jpg" alt=""></span>
+                <span class="tome t2"><img src="covers/moral-animal.jpg" alt=""></span>
+                <span class="tome t3"><img src="covers/power.jpg" alt=""></span>
             </div>
             <h1>Welcome to Bookshelf</h1>
             <ul class="features">
@@ -46,7 +46,7 @@
                     <div><strong>Read on your TV</strong><span>Open Bookshelf on the TV. New books show up within seconds.</span></div>
                 </li>
             </ul>
-            <button id="signIn" class="primary" type="button">Sign in with Google</button>
+            <button id="signIn" class="prominent" type="button">Sign in with Google</button>
             <p class="fine">Use the Google account that’s signed in on your TV.</p>
             <p id="setup" class="alert" role="alert" hidden></p>
         </section>
@@ -54,22 +54,21 @@
         <section id="signedIn" hidden>
             <header class="title-row">
                 <h1 id="title">Bookshelf</h1>
-                <button id="avatar" class="avatar" type="button" aria-label="Account"></button>
+                <div class="add">
+                    <label id="drop" class="row">
+                        <input id="pick" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple>
+                        <span class="tile blue"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 19V6m0 0-5 5m5-5 5 5M6 18v2.5A2.5 2.5 0 0 0 8.5 23h11a2.5 2.5 0 0 0 2.5-2.5V18"/></svg></span>
+                        <span class="text"><strong><span class="long">Add PDFs or EPUBs</span><span class="short">Add Books</span></strong><span class="sub">Choose from Files or Photos</span></span>
+                        <svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>
+                    </label>
+                    <button id="fromDrive" class="row" type="button">
+                        <span class="tile green"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h5.2l2.3 2.5h9.5a2 2 0 0 1 2 2v10.5a2 2 0 0 1-2 2h-17a2 2 0 0 1-2-2z"/><path d="M3.5 12h21"/></svg></span>
+                        <span class="text"><strong><span class="long">Choose from Google Drive</span><span class="short">Google Drive</span></strong><span class="sub">Books already in your Drive</span></span>
+                        <svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>
+                    </button>
+                </div>
+                <button id="avatar" class="avatar" type="button" aria-label="Account" aria-haspopup="menu"></button>
             </header>
-
-            <div class="group add">
-                <label id="drop" class="row">
-                    <input id="pick" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple>
-                    <span class="tile blue"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 19V6m0 0-5 5m5-5 5 5M6 18v2.5A2.5 2.5 0 0 0 8.5 23h11a2.5 2.5 0 0 0 2.5-2.5V18"/></svg></span>
-                    <span class="text"><strong>Add PDFs or EPUBs</strong><span class="hint-touch">Choose from Files or Photos</span><span class="hint-mouse">Choose files, or drop them anywhere here</span></span>
-                    <svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>
-                </label>
-                <button id="fromDrive" class="row" type="button">
-                    <span class="tile green"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 1 2-2h5.2l2.3 2.5h9.5a2 2 0 0 1 2 2v10.5a2 2 0 0 1-2 2h-17a2 2 0 0 1-2-2z"/><path d="M3.5 12h21"/></svg></span>
-                    <span class="text"><strong>Choose from Google Drive</strong><span>Books already in your Drive</span></span>
-                    <svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>
-                </button>
-            </div>
 
             <ul id="queue" class="group queue" aria-live="polite"></ul>
 
@@ -83,34 +82,39 @@
                 <ul id="books" class="books"></ul>
             </section>
 
-            <footer>Uploaded books go into the <b>Bookshelf</b> folder of your Google Drive. Removing one moves it to the Drive trash. A book you picked from elsewhere in Drive just leaves Bookshelf.</footer>
+            <footer>Uploaded books go into the <b>Bookshelf</b> folder of your Google Drive. Removing one moves it to the Drive trash. A book you picked from elsewhere in Drive just leaves Bookshelf.<span class="mac-only"> You can also drag books onto this page.</span></footer>
         </section>
     </main>
 
-    <dialog id="sheet" class="sheet" tabindex="-1">
-        <div class="sheet-group">
-            <div id="sheetHead" class="sheet-head"></div>
-            <div id="sheetActions" class="sheet-actions"></div>
-        </div>
-        <button class="sheet-cancel" type="button" data-close>Cancel</button>
-    </dialog>
+    <div id="menu" class="menu" role="menu" tabindex="-1" hidden></div>
 
-    <dialog id="account" class="sheet" tabindex="-1">
-        <div class="sheet-group">
-            <div class="sheet-head"><span id="avatarBig" class="avatar big"></span><strong>Google Account</strong><span id="who"></span></div>
-            <div class="sheet-actions"><button id="signOut" class="danger" type="button">Sign Out</button></div>
-        </div>
-        <button class="sheet-cancel" type="button" data-close>Cancel</button>
-    </dialog>
-
-    <dialog id="editor" class="modal">
+    <dialog id="editor" class="editor">
         <form id="editForm">
-            <div class="modal-bar"><button class="plain" type="button" data-close>Cancel</button><strong>Edit Details</strong><button class="plain bold" type="submit">Save</button></div>
+            <div class="ed-bar">
+                <button class="circle" type="button" data-close aria-label="Cancel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
+                <strong>Edit Details</strong>
+                <button class="circle tinted" type="submit" aria-label="Save"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+            </div>
+            <strong class="ed-title">Edit Details</strong>
             <div class="fields">
                 <label><span>Title</span><input name="title" autocomplete="off" spellcheck="false" autofocus></label>
                 <label><span>Author</span><input name="author" autocomplete="off" spellcheck="false" placeholder="Unknown"></label>
             </div>
+            <div class="ed-buttons">
+                <button class="push" type="button" data-close>Cancel</button>
+                <button class="push default" type="submit">Save</button>
+            </div>
         </form>
+    </dialog>
+
+    <dialog id="alert" class="alert-box">
+        <img src="icon.png" alt="">
+        <strong id="alertTitle"></strong>
+        <p id="alertText"></p>
+        <div class="alert-buttons">
+            <button class="push default" type="button" data-close autofocus>Cancel</button>
+            <button id="alertOk" class="push danger" type="button">Remove</button>
+        </div>
     </dialog>
 
     <div id="dropzone" class="dropzone" hidden><div><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 19V6m0 0-5 5m5-5 5 5M6 18v2.5A2.5 2.5 0 0 0 8.5 23h11a2.5 2.5 0 0 0 2.5-2.5V18"/></svg><strong>Drop to Add to Bookshelf</strong></div></div>

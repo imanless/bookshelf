@@ -18,7 +18,7 @@
     var $ = function (id) { return document.getElementById(id); };
     App.BookMeta.pdfjsBase = '../tv/vendor/pdfjs/';
 
-    var token = null, tokenClient = null, drive = null, folders = null, books = [], progress = {};
+    var token = null, tokenClient = null, drive = null, folders = null, account = null, books = [], progress = {};
 
     function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -93,12 +93,10 @@
                 await requestToken('');
             }
             drive = App.DriveApi(API, getToken, function () { token = null; });
-            var me = (await drive.about()).user;
+            account = (await drive.about()).user;
             folders = await drive.folders();
-            var who = me.emailAddress || me.displayName || '';
-            $('who').textContent = who;
-            $('avatar').textContent = $('avatarBig').textContent = (me.displayName || who || '?').trim().charAt(0).toUpperCase();
-            $('avatar').title = who;
+            $('avatar').textContent = (account.displayName || account.emailAddress || '?').trim().charAt(0).toUpperCase();
+            $('avatar').title = account.emailAddress || account.displayName || '';
             $('fromDrive').hidden = !!mock || !cfg.apiKey;
             await load();
             $('signedOut').hidden = true;
@@ -121,6 +119,7 @@
         keepToken(null);
         drive = null;
         books = [];
+        closeMenu(true);
         $('signedIn').hidden = true;
         $('signedOut').hidden = false;
         $('navbar').classList.remove('on');
@@ -297,16 +296,119 @@
         }
     }
 
-    /* ---- Book actions (action sheet, edit form) ------------------------------------ */
+    /* ---- Menus, the edit form and the remove alert --------------------------------------
+       As in iOS 26 and macOS 26, a menu opens from the button that was pressed (or
+       at the pointer, for a right-click on a Mac). On a Mac the remove question is
+       an alert; on a phone it opens from the same button. */
 
-    var sheet = $('sheet'), editor = $('editor'), editing = null;
+    var mac = window.matchMedia('(hover: hover) and (pointer: fine)');
+    var menu = $('menu'), menuFrom = null, menuItems = [], menuTimer = 0, chosen = false, swallow = false;
+    var editor = $('editor'), alertBox = $('alert'), editing = null, alertRun = null;
+    var ICONS = {
+        edit: '<path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16zM13.5 6.5l4 4"/>',
+        trash: '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l.8 12.1A2 2 0 0 0 9.3 21h5.4a2 2 0 0 0 2-1.9L17.5 7M10 11v6M14 11v6"/>',
+        out: '<path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14M10 8l-4 4 4 4M6 12h10"/>'
+    };
+
+    // items: { label, icon, danger, run } or '-' for a line between groups.
+    function openMenu(from, head, items, at) {
+        closeMenu(true);
+        if (!at && !(from && from.isConnected)) at = { x: innerWidth / 2 - 120, y: innerHeight / 3 };
+        menuFrom = from;
+        menuItems = items;
+        chosen = false;
+        menu.innerHTML = (head ? '<div class="m-head">' + head + '</div>' : '') + items.map(function (it, i) {
+            return it === '-' ? '<div class="m-sep" role="separator"></div>' :
+                '<button class="m-item' + (it.danger ? ' danger' : '') + '" type="button" role="menuitem" data-i="' + i + '">' +
+                (it.icon ? '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[it.icon] + '</svg>' : '') + '<span>' + esc(it.label) + '</span></button>';
+        }).join('');
+        menu.className = 'menu';
+        menu.style.left = menu.style.top = '0px'; // measured at full width
+        menu.hidden = false;
+        if (from) from.setAttribute('aria-expanded', 'true');
+        var w = menu.offsetWidth, h = menu.offsetHeight, vw = document.documentElement.clientWidth, vh = innerHeight;
+        var m = 8, gap = mac.matches ? 4 : 8, x, y, o;
+        if (at) {
+            x = at.x + w > vw - m ? at.x - w : at.x;
+            y = at.y + h > vh - m ? at.y - h : at.y;
+            o = at;
+        } else {
+            var r = from.getBoundingClientRect();
+            x = r.left + r.width / 2 > vw / 2 ? r.right - w : r.left; // opens toward the middle
+            y = r.bottom + gap;
+            if (y + h > vh - m && r.top - gap - h > m) y = r.top - gap - h;
+            o = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        }
+        x = Math.max(m, Math.min(x, vw - w - m));
+        y = Math.max(m, Math.min(y, vh - h - m));
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+        menu.style.transformOrigin = (o.x - x) + 'px ' + (o.y - y) + 'px'; // grows out of the button
+        menu.focus({ preventScroll: true });
+    }
+
+    function closeMenu(now) {
+        clearTimeout(menuTimer);
+        if (menu.hidden) return;
+        if (menuFrom) {
+            menuFrom.removeAttribute('aria-expanded');
+            if (menu.contains(document.activeElement) && menuFrom.isConnected) menuFrom.focus({ preventScroll: true });
+        }
+        menuFrom = null;
+        if (now) { menu.hidden = true; return; }
+        menu.classList.add('out');
+        menuTimer = setTimeout(function () { menu.hidden = true; }, 200);
+    }
+
+    menu.addEventListener('click', function (e) {
+        var b = e.target.closest('.m-item');
+        if (!b || chosen) return;
+        chosen = true;
+        var it = menuItems[b.getAttribute('data-i')];
+        if (!mac.matches) { closeMenu(); return it.run(); }
+        // The chosen item blinks once, then the menu fades, as on a Mac.
+        b.focus({ preventScroll: true });
+        b.classList.add('blink');
+        setTimeout(function () { b.classList.remove('blink'); }, 70);
+        setTimeout(function () { closeMenu(); it.run(); }, 140);
+    });
+    // On a Mac the highlight follows the pointer, and the arrow keys move it.
+    menu.addEventListener('mousemove', function (e) {
+        var b = e.target.closest('.m-item');
+        if (mac.matches && b && b !== document.activeElement && !chosen) b.focus({ preventScroll: true });
+    });
+    menu.addEventListener('mouseleave', function () { if (mac.matches && !chosen) menu.focus({ preventScroll: true }); });
+    menu.addEventListener('keydown', function (e) {
+        var items = [].slice.call(menu.querySelectorAll('.m-item')), i = items.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            items[e.key === 'ArrowDown' ? (i + 1) % items.length : (i <= 0 ? items.length : i) - 1].focus();
+        } else if (e.key === 'Tab') {
+            e.preventDefault();
+        }
+    });
+    // A tap or click outside only closes the menu; it doesn't press what's under it.
+    document.addEventListener('pointerdown', function (e) {
+        swallow = false;
+        if (menu.hidden || menu.classList.contains('out') || menu.contains(e.target)) return;
+        closeMenu();
+        swallow = true;
+    }, true);
+    document.addEventListener('click', function (e) {
+        if (!swallow) return;
+        swallow = false;
+        e.preventDefault();
+        e.stopPropagation();
+    }, true);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) closeMenu(); });
+    window.addEventListener('scroll', function () { closeMenu(); }, { passive: true });
+    window.addEventListener('resize', function () { closeMenu(true); });
 
     function openDialog(d) {
+        closeMenu(true);
         clearTimeout(d.closer);
         d.classList.remove('closing');
-        if (d.open) return;
-        d.showModal();
-        if (d.tabIndex === -1) d.focus(); // a sheet opens without a focus ring on its first button
+        if (!d.open) d.showModal();
     }
     // Plays the closing animation first.
     function closeDialog(d) {
@@ -314,37 +416,46 @@
         d.classList.add('closing');
         d.closer = setTimeout(function () { d.classList.remove('closing'); d.close(); }, 200);
     }
-
-    function actionSheet(title, message, actions) {
-        $('sheetHead').innerHTML = '<strong>' + esc(title) + '</strong>' + (message ? '<span>' + esc(message) + '</span>' : '');
-        var box = $('sheetActions');
-        box.innerHTML = '';
-        actions.forEach(function (a) {
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.textContent = a.label;
-            if (a.danger) b.className = 'danger';
-            b.addEventListener('click', a.run);
-            box.appendChild(b);
+    [editor, alertBox].forEach(function (d) {
+        d.addEventListener('cancel', function (e) { e.preventDefault(); closeDialog(d); }); // Esc, with the animation
+        d.addEventListener('click', function (e) {
+            var r = d.getBoundingClientRect();
+            var outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+            // A phone sheet closes with a tap above it; Mac sheets and alerts wait for a button.
+            if (e.target.closest('[data-close]') || (e.target === d && outside && !mac.matches)) closeDialog(d);
         });
-        openDialog(sheet);
+    });
+
+    function bookFor(el) {
+        var id = el.closest('.book').getAttribute('data-id');
+        return books.filter(function (b) { return b.id === id; })[0];
     }
 
-    function bookMenu(book) {
+    function bookMenu(book, from, at) {
         var pct = percent(book);
         var info = [book.author, book.format.toUpperCase(), book.size && size(book.size), pct === null ? '' : pct >= 100 ? 'Finished' : pct + '% read'];
-        actionSheet(book.title, info.filter(Boolean).join(' · '), [
-            { label: 'Edit Title and Author', run: function () { closeDialog(sheet); editBook(book); } },
-            { label: 'Remove from Bookshelf', danger: true, run: function () { confirmRemove(book); } }
-        ]);
+        openMenu(from, '<strong>' + esc(book.title) + '</strong><span>' + esc(info.filter(Boolean).join(' · ')) + '</span>', [
+            { label: 'Edit Title and Author', icon: 'edit', run: function () { editBook(book); } },
+            '-',
+            { label: 'Remove from Bookshelf', icon: 'trash', danger: true, run: function () { confirmRemove(book, from, at); } }
+        ], at);
     }
 
-    function confirmRemove(book) {
+    function confirmRemove(book, from, at) {
         var uploaded = book.parents.indexOf(folders.root) !== -1;
-        actionSheet('Remove “' + book.title + '”?', uploaded ? 'It moves to the Google Drive trash. You can restore it from there for 30 days.' : 'It stays in your Google Drive and just leaves Bookshelf.', [
-            { label: 'Remove Book', danger: true, run: function () { closeDialog(sheet); change(book, remove(book, uploaded), 'Couldn’t remove it'); } }
-        ]);
+        var title = 'Remove “' + book.title + '”?';
+        var text = uploaded ? 'It moves to the Google Drive trash. You can restore it from there for 30 days.' : 'It stays in your Google Drive and just leaves Bookshelf.';
+        var run = function () { change(book, remove(book, uploaded), 'Couldn’t remove it'); };
+        if (mac.matches) {
+            $('alertTitle').textContent = title;
+            $('alertText').textContent = text;
+            alertRun = run;
+            openDialog(alertBox);
+        } else {
+            openMenu(from, '<strong>' + esc(title) + '</strong><span>' + esc(text) + '</span>', [{ label: 'Remove Book', icon: 'trash', danger: true, run: run }], at);
+        }
     }
+    $('alertOk').addEventListener('click', function () { closeDialog(alertBox); alertRun(); });
 
     // Same rule as the TV: uploaded → Drive trash; picked → just unmarked.
     async function remove(book, uploaded) {
@@ -368,6 +479,8 @@
         field('title').value = book.title;
         field('author').value = book.author || '';
         openDialog(editor);
+        field('title').focus();
+        if (mac.matches) field('title').select();
     }
 
     $('editForm').addEventListener('submit', function (e) {
@@ -378,24 +491,30 @@
         change(editing, drive.update(editing.id, { appProperties: { title: fit('title', title), author: author ? fit('author', author) : null } }), 'Couldn’t save it');
     });
 
-    [sheet, editor, $('account')].forEach(function (d) {
-        d.addEventListener('cancel', function (e) { e.preventDefault(); closeDialog(d); }); // Esc, with the animation
-        d.addEventListener('click', function (e) { if (e.target === d || e.target.closest('[data-close]')) closeDialog(d); });
-    });
-
     $('books').addEventListener('click', function (e) {
         var btn = e.target.closest('[data-act=menu]');
-        if (!btn) return;
-        var id = btn.closest('.book').getAttribute('data-id');
-        var book = books.filter(function (b) { return b.id === id; })[0];
-        if (book) bookMenu(book);
+        var book = btn && bookFor(btn);
+        if (!book) return;
+        // A click on the cover opens the menu at the pointer on a Mac, from "…" on a phone.
+        var at = mac.matches && btn.classList.contains('cover') ? { x: e.clientX, y: e.clientY } : null;
+        bookMenu(book, btn.closest('.book').querySelector('.more'), at);
+    });
+    $('books').addEventListener('contextmenu', function (e) {
+        var el = e.target.closest('.book');
+        var book = el && mac.matches && bookFor(el);
+        if (!book) return;
+        e.preventDefault();
+        bookMenu(book, el.querySelector('.more'), { x: e.clientX, y: e.clientY });
     });
 
     /* ---- Wiring --------------------------------------------------------------------- */
 
     $('signIn').addEventListener('click', function () { signIn(false); }); // not signIn(event): that reads as "restored"
-    $('avatar').addEventListener('click', function () { openDialog($('account')); });
-    $('signOut').addEventListener('click', function () { closeDialog($('account')); signOut(); });
+    $('avatar').addEventListener('click', function () {
+        var name = account.displayName || account.emailAddress || '';
+        openMenu(this, '<strong>' + esc(name) + '</strong>' + (account.emailAddress && account.emailAddress !== name ? '<span>' + esc(account.emailAddress) + '</span>' : ''),
+            [{ label: 'Sign Out', icon: 'out', run: signOut }]);
+    });
     $('fromDrive').addEventListener('click', pickFromDrive);
     $('pick').addEventListener('change', function (e) { addAll(Array.prototype.slice.call(e.target.files)); e.target.value = ''; });
 
