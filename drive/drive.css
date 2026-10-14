@@ -284,6 +284,21 @@ button.prominent:disabled { opacity: 0.55; transform: none; filter: none; }
 footer { max-width: 520px; margin: 56px auto 0; padding: 0 12px; color: var(--label-2); font-size: 12px; line-height: 1.45; text-align: center; }
 footer b { color: var(--label); font-weight: 600; }
 
+footer a, .fine a { color: inherit; }
+
+/* ---- Privacy page ---------------------------------------------------------------- */
+
+.doc { max-width: 680px; line-height: 1.47; }
+.doc a { color: var(--blue); text-decoration: none; }
+.doc a:hover { text-decoration: underline; }
+.doc h1 { margin-top: 12px; }
+.doc h2 { margin: 32px 0 8px; font-size: 20px; }
+.doc p, .doc li { color: var(--label); }
+.doc .lede { color: var(--label-2); font-size: 19px; }
+.doc ul { padding-left: 20px; }
+.doc li + li { margin-top: 8px; }
+.doc .fine { margin-top: 40px; text-align: left; }
+
 /* ---- Drag and drop -------------------------------------------------------------- */
 
 .dropzone {
