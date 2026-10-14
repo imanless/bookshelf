@@ -31,13 +31,28 @@
         });
     }
 
-    /* ---- Sign-in (Google Identity Services, token in memory only) ---------- */
+    /* ---- Sign-in (Google Identity Services) -----------------------------------
+       The access token lasts an hour. It's kept in this tab's sessionStorage, so
+       reloading the page doesn't need a new Google sign-in (closing the tab
+       forgets it). */
+
+    var TOKEN_KEY = 'bookshelf.token';
+    function keepToken(t) {
+        token = t;
+        try { if (t) sessionStorage.setItem(TOKEN_KEY, JSON.stringify(t)); else sessionStorage.removeItem(TOKEN_KEY); } catch (e) { /* private mode */ }
+    }
+    function savedToken() {
+        try {
+            var t = JSON.parse(sessionStorage.getItem(TOKEN_KEY) || 'null');
+            return t && t.exp > Date.now() + 60000 ? t : null;
+        } catch (e) { return null; }
+    }
 
     function requestToken(prompt) {
         return new Promise(function (resolve, reject) {
             tokenClient.callback = function (resp) {
                 if (resp.error) return reject(new Error(resp.error_description || resp.error));
-                token = { value: resp.access_token, exp: Date.now() + resp.expires_in * 1000 };
+                keepToken({ value: resp.access_token, exp: Date.now() + resp.expires_in * 1000 });
                 resolve(token.value);
             };
             tokenClient.error_callback = function (e) { reject(new Error(e && e.type === 'popup_closed' ? 'Sign-in window closed.' : 'Sign-in failed.')); };
@@ -53,13 +68,16 @@
                 return token.value;
             });
         }
+        // A restored session has no sign-in client yet, and Google's window
+        // may only open from a click — so after the hour, sign in again.
+        if (!tokenClient) { signOut(); return Promise.reject(new Error('Your sign-in ended after an hour. Sign in again.')); }
         return requestToken(''); // after the first consent this is quick
     }
 
-    async function signIn() {
+    async function signIn(restored) {
         $('setup').hidden = true;
         try {
-            if (!mock) {
+            if (!mock && !restored) {
                 if (!cfg.webClientId) throw new Error('Google sign-in isn’t set up yet: add drive.config.json on the Mac and restart the server.');
                 if (!window.google || !google.accounts) await loadScript('https://accounts.google.com/gsi/client');
                 tokenClient = tokenClient || google.accounts.oauth2.initTokenClient({ client_id: cfg.webClientId, scope: SCOPES, callback: function () {} });
@@ -74,13 +92,17 @@
             $('fromDrive').hidden = !!mock || !cfg.apiKey;
             await load();
         } catch (e) {
-            $('setup').textContent = e.message;
+            keepToken(null);
+            $('signedIn').hidden = true;
+            $('signedOut').hidden = false;
+            $('setup').textContent = e.message + (mock || restored ? '' :
+                ' If Google said “origin_mismatch”: after a settings change it can take up to a few hours until every Google server knows this page. Try again a bit later.');
             $('setup').hidden = false;
         }
     }
 
     function signOut() {
-        token = null;
+        keepToken(null);
         drive = null;
         books = [];
         $('signedIn').hidden = true;
@@ -301,4 +323,5 @@
     });
 
     if (mock) signIn(); // tests: no sign-in window
+    else if ((token = savedToken())) signIn(true); // reloaded within the hour: still signed in
 })();
