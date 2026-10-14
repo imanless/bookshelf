@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Bookshelf · Google Drive</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="drive.css">
+    <script src="config.js"></script>
+    <script src="../tv/vendor/fflate.js"></script>
+    <script src="../tv/js/drive-api.js"></script>
+    <script src="../tv/js/bookmeta.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <main>
+        <header>
+            <div>
+                <h1>Bookshelf</h1>
+                <p id="sub" class="sub">Your books in Google Drive</p>
+            </div>
+            <span id="count" class="count"></span>
+        </header>
+
+        <section id="signedOut" class="signin">
+            <p>Sign in with the Google account you use on the TV. Bookshelf only sees the books you add here.</p>
+            <button id="signIn" class="primary" type="button">Sign in with Google</button>
+            <p id="setup" class="note" hidden></p>
+        </section>
+
+        <section id="signedIn" hidden>
+            <div class="account"><span id="who"></span><button id="signOut" class="link" type="button">Sign out</button></div>
+
+            <label id="drop" class="drop">
+                <input id="pick" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5M4 15v3a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-3"/></svg>
+                <strong>Add PDFs or EPUBs</strong>
+                <span>Drop files here, or tap to choose</span>
+            </label>
+            <button id="fromDrive" class="secondary" type="button">Pick books already in Google Drive</button>
+
+            <ul id="queue" class="queue"></ul>
+
+            <section>
+                <h2>Books</h2>
+                <p id="empty" class="empty" hidden>No books yet. Anything you add shows up on the TV a few seconds later.</p>
+                <ul id="books" class="books"></ul>
+            </section>
+        </section>
+
+        <footer>Books you upload go into the <b>Bookshelf</b> folder of your Google Drive. Removing an uploaded book moves it to the Drive trash; a book you picked from elsewhere just leaves Bookshelf.</footer>
+    </main>
+</body>
+</html>
