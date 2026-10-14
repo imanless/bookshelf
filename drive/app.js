@@ -2,13 +2,18 @@
 // PDFs/EPUBs to the Bookshelf folder (with cover and details made here), pick
 // books already in Drive, rename or remove books. Same Google project as the
 // TV, so the TV sees everything added here.
-// Testing without Google: ?mock=<mock server> (tests/mock-google.js).
+// Testing without Google (only when served from this Mac, never on the
+// public page — a crafted link must not redirect uploads elsewhere):
+//   ?mock=<mock server>   fake sign-in and Drive (tests/mock-google.js)
+//   ?api=<mock server>    real sign-in flow, fake Drive (Google's script stubbed)
 (function () {
     'use strict';
     var App = window.App;
     var cfg = window.DRIVE_UPLOAD_CONFIG || {};
-    var mock = new URLSearchParams(location.search).get('mock');
-    var API = mock || 'https://www.googleapis.com';
+    var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    var params = new URLSearchParams(location.search);
+    var mock = local && params.get('mock');
+    var API = mock || (local && params.get('api')) || 'https://www.googleapis.com';
     var SCOPES = 'https://www.googleapis.com/auth/drive.file';
     var $ = function (id) { return document.getElementById(id); };
     App.BookMeta.pdfjsBase = '../tv/vendor/pdfjs/';
@@ -272,7 +277,7 @@
 
     /* ---- Wiring --------------------------------------------------------------------- */
 
-    $('signIn').addEventListener('click', signIn);
+    $('signIn').addEventListener('click', function () { signIn(false); }); // not signIn(event): that reads as "restored"
     $('signOut').addEventListener('click', signOut);
     $('fromDrive').addEventListener('click', pickFromDrive);
     $('pick').addEventListener('change', function (e) { addAll(Array.prototype.slice.call(e.target.files)); e.target.value = ''; });
